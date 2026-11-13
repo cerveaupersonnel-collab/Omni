@@ -1,0 +1,58 @@
+workflows:
+  omni-android-debug:
+    name: OMNI Android debug APK
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - omni_secrets
+    scripts:
+      - name: Create the Android project
+        script: flutter create --org com.omni --project-name omni --platforms=android . && rm -f test/widget_test.dart
+      - name: Firebase files
+        script: bash tools/ci_firebase_files.sh
+      - name: Native patch
+        script: bash tools/apply_android_patch.sh
+      - name: Dependencies
+        script: flutter pub get
+      - name: Analyze informational
+        ignore_failure: true
+        script: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Build debug APK
+        script: flutter build apk --debug --dart-define=OMNI_SKIP_INTEGRITY=true
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+
+  omni-android:
+    name: OMNI Android release AAB
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - omni_secrets
+    scripts:
+      - name: Create the Android project
+        script: flutter create --org com.omni --project-name omni --platforms=android . && rm -f test/widget_test.dart
+      - name: Firebase files
+        script: bash tools/ci_firebase_files.sh
+      - name: Upload key
+        script: bash tools/ci_upload_key.sh
+      - name: Native patch
+        script: bash tools/apply_android_patch.sh
+      - name: Dependencies
+        script: flutter pub get
+      - name: Analyze informational
+        ignore_failure: true
+        script: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Unit tests informational
+        ignore_failure: true
+        script: flutter test
+      - name: Build AAB
+        script: flutter build appbundle --release --obfuscate --split-debug-info=build/symbols --dart-define=ADMOB_BANNER_ID="$ADMOB_BANNER_ID" --dart-define=PRIVACY_URL="$PRIVACY_URL"
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/symbols/**
